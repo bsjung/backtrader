@@ -2,12 +2,9 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 from random import randint
-
-import datetime  # For datetime objects
-import os.path  # To manage paths
-import sys  # To find out the script name (in argv[0])
-
 import backtrader as bt
+import tensorflow as tf
+
 
 '''
   Keep in mind:
@@ -19,8 +16,14 @@ import backtrader as bt
 class RLStrategy(bt.Strategy):
     params = (
         ('timeframe', 5),
-        ('n_bars', 15)  # bars used for analysing history
+        ('n_bars', 15),  # bars used for analysing history
+        ('data_per_bar', 4),  # bars used for analysing history
     )
+
+    LEARNING_RATE = 0.001
+    TF_INPUT_SIZE = 15 * 4
+    TF_HIDDEN_1_SIZE = 15 * 4 / 2
+    TF_OUTPUT_SIZE = 2
 
 
     def log(self, txt, dt=None):
@@ -30,8 +33,32 @@ class RLStrategy(bt.Strategy):
 
 
     def __init__(self):
+        # Init Bactrader things:
         self.order = None
+
+        # Init RL things:
         self.reward = 0
+
+        # Init tensor things:
+        # We will pass as input array of flattened bar info
+        self.tf_input = tf.placeholder(tf.float32, shape=[None, self.TF_INPUT_SIZE])
+        # We will output probabily of taking action or wait.
+        # If order is not present action => buy, otherwise => sell
+        self.tf_output = tf.placeholder(tf.float32, shape=[None, 2])
+
+        # Set up weights & biases of our model
+        self.tf_w1 = tf.Variable(tf.random_normal([int(self.TF_INPUT_SIZE), int(self.TF_HIDDEN_1_SIZE)]))  # First weights
+        self.tf_b1 = tf.Variable(tf.random_normal([int(self.TF_HIDDEN_1_SIZE)]))   # First biases
+        self.tf_l1 = tf.nn.relu(tf.matmul(self.tf_input, self.tf_w1) + self.tf_b1)   # First layer
+
+        self.tf_w2 = tf.Variable(tf.random_normal([int(self.TF_HIDDEN_1_SIZE), int(self.TF_OUTPUT_SIZE)]))   # Second weights
+        self.tf_b2 = tf.Variable(tf.random_normal([int(self.TF_OUTPUT_SIZE)]))   # Second biases
+        self.tf_result = tf.matmul(self.tf_l1, self.tf_w2) + self.tf_b2   # Resulting array
+
+        self.tf_loss = tf.reduce_mean(
+            tf.nn.softmax_cross_entropy_with_logits(labels=self.tf_output, logits=self.tf_result)
+        )
+        self.tf_optimizer = tf.train.AdamOptimizer(learning_rate=self.LEARNING_RATE).minimize(self.tf_loss)
 
 
     ''' Methods for learning purposes: '''
@@ -108,8 +135,8 @@ class RLStrategy(bt.Strategy):
 
 
 
-    # One input entry for index
     def tensor_input_entry(self, index):
+        ''' One input entry for index '''
         return [
             self.data.close[index],
             self.data.low[index],
