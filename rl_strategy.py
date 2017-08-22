@@ -13,6 +13,24 @@ class RLStrategy(bt.Strategy):
       ('timeframe', 5),
       ('bar_count', 100)
   )
+    def tensor_input(self):
+        tensor_input = []
+        for index in range(-self.params.n_bars+1, 1):
+            tensor_input.append(self.tensor_input_entry(index))
+
+        # flattens array of input:
+        return [val for sublist in tensor_input for val in sublist]
+
+
+
+    # One input entry for index
+    def tensor_input_entry(self, index):
+        return [
+            self.data.close[index],
+            self.data.low[index],
+            self.data.high[index],
+            self.data.open[index]
+        ]
 
 
   def log(self, txt, dt=None):
