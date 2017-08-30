@@ -42,7 +42,7 @@ if __name__ == '__main__':
     cerebro = bt.Cerebro()
     cerebro.broker.setcash(100000)
     # Add a FixedSize sizer according to the stake
-    cerebro.addsizer(bt.sizers.FixedSize, stake=1)
+    cerebro.addsizer(bt.sizers.FixedSize, stake=100)
     cerebro.broker.setcommission(commission=0.0)
     # Add a strategy
     cerebro.addstrategy(RLStrategy, n_bars=10)
