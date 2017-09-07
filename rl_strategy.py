@@ -1,7 +1,8 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-from random import randint
+import random
+import numpy as np
 import backtrader as bt
 import tensorflow as tf
 
@@ -23,6 +24,9 @@ class RLStrategy(bt.Strategy):
     TF_INPUT_SIZE = 15 * 4
     TF_HIDDEN_1_SIZE = TF_INPUT_SIZE / 2
     TF_OUTPUT_SIZE = 2
+
+    # Probability of taking random move.
+    RL_E = 0.1
 
 
     def log(self, txt, dt=None):
@@ -60,22 +64,23 @@ class RLStrategy(bt.Strategy):
         ''' executes and returns sample action '''
         ''' if no position is opened, then we return one of (buy, nothing) '''
         ''' if position is opened, then we return one of (sell, nothing) '''
-        sample_number = randint(0, 50000) % 400
 
-        # print("self.order: %s" % bool(self.order))
-
-        # If no order present
-        # and if not in market, we might open position:
-        if not self.order and not self.position:
-            if sample_number == 5:
-                self.order = self.action_buy()
-            else:
-                self.action_nothing()
-        elif not self.order and self.position:
-            if sample_number == 5:
-                self.action_close()
-            else:
-                self.action_nothing()
+        # sample_number = random.randint(0, 50000) % 400
+        #
+        # # print("self.order: %s" % bool(self.order))
+        #
+        # # If no order present
+        # # and if not in market, we might open position:
+        # if not self.order and not self.position:
+        #     if sample_number == 5:
+        #         self.order = self.action_buy()
+        #     else:
+        #         self.action_nothing()
+        # elif not self.order and self.position:
+        #     if sample_number == 5:
+        #         self.action_close()
+        #     else:
+        #         self.action_nothing()
 
 
     def action_buy(self):
@@ -109,13 +114,16 @@ class RLStrategy(bt.Strategy):
 
     def execute_action(self):
         ''' Execute action based on RL '''
-        gready_action = True
 
-        if gready_action:
-            self.action_sample()
-        else:
-            # Take action on learned things
-            pass
+        # Run the Q function on S to get predicted reward values on all the possible actions
+        # Predict:
+        # prediction, something = sess.run([predict, Qout], feed_dict={inputs1: np.identity(16)[s:s + 1]})
+
+        # Gready action
+        if random.random() < self.RL_E:  # choose random action
+            action = self.action_sample()  # assumes 4 different actions
+        else:  # choose best action from Q(s,a) values
+            action = (np.argmax(prediction))
 
 
     def get_reward(self):
@@ -216,8 +224,8 @@ class RLStrategy(bt.Strategy):
         if not trade.isclosed:
             return
 
-        self.rl_set_reward(trade.pnl)
-
+        # Set reward to profit
+        self.rl_reward = trade.pnl
 
         self.log('OPERATION PROFIT, GROSS %.2f, NET %.2f' % (trade.pnl, trade.pnlcomm))
 
@@ -246,7 +254,6 @@ class RLStrategy(bt.Strategy):
         #     print("positions:")
         #     print(self.position)
         #     # self.action_sell()
-
 
 
         self.execute_action()
